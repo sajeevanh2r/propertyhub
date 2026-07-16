@@ -1,0 +1,212 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  BUYER
+  SELLER
+  ADMIN
+}
+
+enum ListingStatus {
+  DRAFT
+  PENDING
+  LIVE
+  SOLD
+  EXPIRED
+}
+
+enum Purpose {
+  SALE
+  RENT
+  LEASE
+  AUCTION
+}
+
+enum PremiumBadge {
+  NONE
+  URGENT
+  TOP
+  FEATURED
+}
+
+model User {
+  id            String          @id @default(cuid())
+  name          String?
+  email         String          @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?         // Hashed password for credentials login
+  role          Role            @default(BUYER)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  accounts      Account[]
+  sessions      Session[]
+  listings      Listing[]
+  reviewsGiven  Review[]        @relation("Reviewer")
+  reviewsReceived Review[]      @relation("SellerReviews")
+  messagesSent  Message[]       @relation("Sender")
+  messagesReceived Message[]    @relation("Receiver")
+  subscriptions Subscription[]
+  favorites     Favorite[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model Listing {
+  id           String        @id @default(cuid())
+  title        String
+  description  String        @db.Text
+  price        Float
+  negotiable   Boolean       @default(false)
+  propertyType String        // e.g. "House", "Apartment", "Land"
+  purpose      Purpose
+  bedrooms     Int           @default(0)
+  bathrooms    Int           @default(0)
+  area         Float         // in sqft
+  landSize     Float?        // in perches (for land listings)
+  parking      Int           @default(0)
+  floors       Int?          @default(1)
+  furnished    Boolean       @default(false)
+  amenities    String        @default("[]") // JSON string array of amenities
+  address      String
+  city         String
+  district     String
+  latitude     Float
+  longitude    Float
+  mapsEmbedUrl String?       @db.Text
+  status       ListingStatus @default(PENDING)
+  premiumBadge PremiumBadge  @default(NONE)
+  sellerId     String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  seller    User               @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  images    ListingImage[]
+  reviews   Review[]
+  messages  Message[]
+  favorites Favorite[]
+  embedding ListingEmbedding?
+}
+
+model ListingImage {
+  id        String  @id @default(cuid())
+  url       String
+  listingId String
+  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+}
+
+model Favorite {
+  id        String   @id @default(cuid())
+  userId    String
+  listingId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, listingId])
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  rating     Int      // 1 to 5
+  comment    String   @db.Text
+  reviewerId String
+  sellerId   String
+  listingId  String?
+  verified   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  reviewer User     @relation("Reviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
+  seller   User     @relation("SellerReviews", fields: [sellerId], references: [id], onDelete: Cascade)
+  listing  Listing? @relation(fields: [listingId], references: [id], onDelete: SetNull)
+}
+
+model Message {
+  id         String   @id @default(cuid())
+  content    String   @db.Text
+  senderId   String
+  receiverId String
+  listingId  String?
+  read       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  sender   User     @relation("Sender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User     @relation("Receiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  listing  Listing? @relation(fields: [listingId], references: [id], onDelete: SetNull)
+}
+
+model Subscription {
+  id               String   @id @default(cuid())
+  tier             String   // e.g. STARTER, PROFESSIONAL, BUSINESS, ENTERPRISE
+  status           String   // e.g. ACTIVE, CANCELLED, PAST_DUE
+  activePeriodEnd  DateTime
+  userId           String
+  createdAt        DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model KnowledgeBase {
+  id        String   @id @default(cuid())
+  title     String
+  content   String   @db.Text
+  category  String   // e.g. "POLICY", "FAQ", "BLOG"
+  sourceUrl String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  embedding KBEmbedding?
+}
+
+model ListingEmbedding {
+  id        String   @id @default(cuid())
+  listingId String   @unique
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  embedding Unsupported("vector(1536)")
+}
+
+model KBEmbedding {
+  id        String        @id @default(cuid())
+  kbId      String        @unique
+  kb        KnowledgeBase @relation(fields: [kbId], references: [id], onDelete: Cascade)
+  embedding Unsupported("vector(1536)")
+}
