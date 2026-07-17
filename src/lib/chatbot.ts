@@ -129,7 +129,10 @@ export async function queryRAGChatbot(userQuery: string, history: { role: string
     where: listingWhereClause,
     take: 3,
     include: {
-      images: {
+      media: {
+        where: {
+          type: 'IMAGE',
+        },
         take: 1,
       },
     },
@@ -145,7 +148,7 @@ export async function queryRAGChatbot(userQuery: string, history: { role: string
     bedrooms: l.bedrooms,
     bathrooms: l.bathrooms,
     area: l.area,
-    image: l.images[0]?.url || 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=600',
+    image: l.media[0]?.url || 'https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=600',
   }))
 
   // Query Knowledge Base

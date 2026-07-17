@@ -55,6 +55,9 @@ model User {
   favorites        Favorite[]
   profile          Profile?
   loginHistories   LoginHistory[]
+  savedSearches    SavedSearch[]
+  recentlyViewed   RecentlyViewed[]
+  comparisons      SavedComparison[]
 }
 
 model Account {
@@ -121,18 +124,31 @@ model Listing {
   updatedAt    DateTime      @updatedAt
 
   seller    User               @relation(fields: [sellerId], references: [id], onDelete: Cascade)
-  images    ListingImage[]
-  reviews   Review[]
-  messages  Message[]
-  favorites Favorite[]
-  embedding ListingEmbedding?
+  media     ListingMedia[]
+  reviews        Review[]
+  messages       Message[]
+  favorites      Favorite[]
+  embedding      ListingEmbedding?
+  recentlyViewed RecentlyViewed[]
+
+  categoryId        String?
+  category          PropertyCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  cityId            String?
+  cityRelation      City?             @relation(fields: [cityId], references: [id], onDelete: SetNull)
+  amenitiesRelation Amenity[]
+
+  @@index([city, price, propertyType])
+  @@index([latitude, longitude])
+  @@index([status, purpose])
+  @@index([title])
 }
 
-model ListingImage {
-  id        String  @id @default(cuid())
+model ListingMedia {
+  id        String    @id @default(cuid())
   url       String
+  type      MediaType @default(IMAGE)
   listingId String
-  listing   Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  listing   Listing   @relation(fields: [listingId], references: [id], onDelete: Cascade)
 }
 
 model Favorite {
@@ -235,6 +251,76 @@ model LoginHistory {
   device    String?  // e.g. "Mobile", "Desktop"
   country   String?
   createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum MediaType {
+  IMAGE
+  VIDEO
+  FLOOR_PLAN
+  DOCUMENT
+  TOUR_360
+}
+
+model PropertyCategory {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  slug      String    @unique
+  listings  Listing[]
+}
+
+model District {
+  id     String @id @default(cuid())
+  name   String @unique
+  cities City[]
+}
+
+model City {
+  id         String   @id @default(cuid())
+  name       String
+  districtId String
+  district   District @relation(fields: [districtId], references: [id], onDelete: Cascade)
+  listings   Listing[]
+
+  @@unique([name, districtId])
+}
+
+model Amenity {
+  id       String    @id @default(cuid())
+  name     String    @unique
+  icon     String?
+  listings Listing[]
+}
+
+model SavedSearch {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  queryParams String   @db.Text
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model RecentlyViewed {
+  id        String   @id @default(cuid())
+  userId    String
+  listingId String
+  viewedAt  DateTime @default(now()) @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, listingId])
+}
+
+model SavedComparison {
+  id         String   @id @default(cuid())
+  userId     String
+  name       String
+  listingIds String   @db.Text
+  createdAt  DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

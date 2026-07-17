@@ -77,7 +77,10 @@ async function getFeaturedListings() {
       },
       take: 4,
       include: {
-        images: {
+        media: {
+          where: {
+            type: 'IMAGE',
+          },
           take: 1,
         },
       },
@@ -101,7 +104,7 @@ async function getFeaturedListings() {
       city: l.city,
       district: l.district,
       premiumBadge: l.premiumBadge,
-      image: l.images[0]?.url || 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=800',
+      image: l.media[0]?.url || 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=800',
     }))
   } catch (error) {
     console.warn('Database not available or empty, loading mock properties...', error)

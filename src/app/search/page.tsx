@@ -123,7 +123,10 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
     listings = await db.listing.findMany({
       where: whereClause,
       include: {
-        images: {
+        media: {
+          where: {
+            type: 'IMAGE',
+          },
           take: 1,
         },
       },
@@ -158,7 +161,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         city: l.city,
         district: l.district,
         premiumBadge: l.premiumBadge,
-        image: l.images[0]?.url || 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=800',
+        image: l.media[0]?.url || 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=800',
       }))
     }
   } catch (error) {

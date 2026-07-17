@@ -1,4 +1,4 @@
-import { PrismaClient, Role, Purpose, ListingStatus, PremiumBadge } from '@prisma/client'
+import { PrismaClient, Role, Purpose, ListingStatus, PremiumBadge, MediaType } from '@prisma/client'
 import { PrismaPg } from '@prisma/adapter-pg'
 import pg from 'pg'
 import bcrypt from 'bcryptjs'
@@ -9,16 +9,23 @@ const adapter = new PrismaPg(pool)
 const prisma = new PrismaClient({ adapter })
 
 async function main() {
-  console.log('Starting seeding database...')
+  console.log('Starting seeding database for Phase 2...')
 
   // 1. Clean existing records (in reverse order of dependencies)
   await prisma.kBEmbedding.deleteMany({})
   await prisma.listingEmbedding.deleteMany({})
+  await prisma.recentlyViewed.deleteMany({})
+  await prisma.savedSearch.deleteMany({})
+  await prisma.savedComparison.deleteMany({})
   await prisma.favorite.deleteMany({})
   await prisma.review.deleteMany({})
   await prisma.message.deleteMany({})
-  await prisma.listingImage.deleteMany({})
+  await prisma.listingMedia.deleteMany({})
   await prisma.listing.deleteMany({})
+  await prisma.amenity.deleteMany({})
+  await prisma.city.deleteMany({})
+  await prisma.district.deleteMany({})
+  await prisma.propertyCategory.deleteMany({})
   await prisma.subscription.deleteMany({})
   await prisma.account.deleteMany({})
   await prisma.session.deleteMany({})
@@ -29,7 +36,7 @@ async function main() {
 
   console.log('Cleared existing data.')
 
-  // 2. Create users with hashed passwords
+  // 2. Create users with hashed passwords and profiles
   const saltRounds = 10
   const hashedPassword = bcrypt.hashSync('password123', saltRounds)
 
@@ -103,12 +110,75 @@ async function main() {
 
   console.log(`Created users: Admin (${adminUser.email}), Seller (${sellerUser.email}), Buyer (${buyerUser.email})`)
 
-  // 3. Create dummy listing data
+  // 3. Seed lookup tables
+  // 3a. Property Categories
+  const categoryNames = ['House', 'Apartment', 'Land', 'Commercial', 'Annex', 'Villa']
+  const categoryMap: { [key: string]: string } = {}
+  for (const name of categoryNames) {
+    const cat = await prisma.propertyCategory.create({
+      data: {
+        name,
+        slug: name.toLowerCase(),
+      }
+    })
+    categoryMap[name] = cat.id
+  }
+  console.log('Seeded Property Categories.')
+
+  // 3b. Districts
+  const districtNames = ['Colombo', 'Kandy', 'Galle', 'Gampaha']
+  const districtMap: { [key: string]: string } = {}
+  for (const name of districtNames) {
+    const dist = await prisma.district.create({
+      data: { name }
+    })
+    districtMap[name] = dist.id
+  }
+  console.log('Seeded Districts.')
+
+  // 3c. Cities (linked to Districts)
+  const citiesData = [
+    { name: 'Nugegoda', districtName: 'Colombo' },
+    { name: 'Colombo 03', districtName: 'Colombo' },
+    { name: 'Dehiwala', districtName: 'Colombo' },
+    { name: 'Kandy', districtName: 'Kandy' },
+    { name: 'Galle', districtName: 'Galle' },
+    { name: 'Negombo', districtName: 'Gampaha' },
+  ]
+  const cityMap: { [key: string]: string } = {}
+  for (const city of citiesData) {
+    const c = await prisma.city.create({
+      data: {
+        name: city.name,
+        districtId: districtMap[city.districtName],
+      }
+    })
+    cityMap[city.name] = c.id
+  }
+  console.log('Seeded Cities.')
+
+  // 3d. Amenities
+  const amenityNames = [
+    'AC', 'Hot Water', 'CCTV', 'Garden', 'Roof Terrace', 'Mainline Water',
+    'Swimming Pool', 'Gym', '24/7 Security', 'Backup Generator',
+    'Three-phase Electricity', 'Road Frontage', 'Beachfront', 'Servant Quarters',
+    'Separate Utility Bills', 'Secure Boundary', 'Electricity', 'Clear Deeds'
+  ]
+  const amenityMap: { [key: string]: string } = {}
+  for (const name of amenityNames) {
+    const am = await prisma.amenity.create({
+      data: { name, icon: name.toLowerCase().replace(/\s+/g, '-') }
+    })
+    amenityMap[name] = am.id
+  }
+  console.log('Seeded Amenities.')
+
+  // 4. Create property listing data with relations
   const listingsData = [
     {
       title: 'Modern 3-Bedroom House in Nugegoda',
       description: 'A beautiful architectural marvel situated in the heart of Nugegoda. This modern house boasts 3 spacious bedrooms, 3 bathrooms, a fully equipped open kitchen, and a secure parking garage. Close to leading international schools and supermarkets. Located in a quiet, high-security residential neighborhood. Ideal for families.',
-      price: 24500000, // 24.5M LKR
+      price: 24500000, 
       negotiable: true,
       propertyType: 'House',
       purpose: Purpose.SALE,
@@ -118,10 +188,10 @@ async function main() {
       parking: 2,
       floors: 2,
       furnished: true,
-      amenities: JSON.stringify(['AC', 'Hot Water', 'CCTV', 'Garden', 'Roof Terrace', 'Mainline Water']),
+      amenitiesList: ['AC', 'Hot Water', 'CCTV', 'Garden', 'Roof Terrace', 'Mainline Water'],
       address: 'No 42, Chapel Road, Nugegoda',
-      city: 'Nugegoda',
-      district: 'Colombo',
+      cityName: 'Nugegoda',
+      districtName: 'Colombo',
       latitude: 6.8722,
       longitude: 79.8887,
       status: ListingStatus.LIVE,
@@ -134,7 +204,7 @@ async function main() {
     {
       title: 'Luxury Apartment in Colombo 3 (Kollupitiya)',
       description: 'Stunning ocean-view apartment on a high floor in Colombo 03. This prime property features 2 bedrooms, 2 bathrooms, marble flooring, central air conditioning, and access to a rooftop infinity pool and modern gymnasium. Includes 24/7 security and dedicated underground parking slot.',
-      price: 68000000, // 68M LKR
+      price: 68000000, 
       negotiable: false,
       propertyType: 'Apartment',
       purpose: Purpose.SALE,
@@ -144,10 +214,10 @@ async function main() {
       parking: 1,
       floors: 1,
       furnished: true,
-      amenities: JSON.stringify(['AC', 'Hot Water', 'Swimming Pool', 'Gym', 'CCTV', '24/7 Security', 'Backup Generator']),
+      amenitiesList: ['AC', 'Hot Water', 'Swimming Pool', 'Gym', 'CCTV', '24/7 Security', 'Backup Generator'],
       address: 'Tower A, Ocean Breeze Apartments, Colombo 03',
-      city: 'Colombo 03',
-      district: 'Colombo',
+      cityName: 'Colombo 03',
+      districtName: 'Colombo',
       latitude: 6.9144,
       longitude: 79.8495,
       status: ListingStatus.LIVE,
@@ -160,7 +230,7 @@ async function main() {
     {
       title: 'Spacious Commercial Building in Kandy Center',
       description: 'Ideal retail or office space located in the bustling commercial zone of Kandy town center. Spans across 3 levels with large road-facing glass facades. High foot traffic area, perfect for banks, showrooms, corporate offices, or educational institutes. Provision for elevator and parking space in front.',
-      price: 180000000, // 180M LKR
+      price: 180000000, 
       negotiable: true,
       propertyType: 'Commercial',
       purpose: Purpose.SALE,
@@ -170,10 +240,10 @@ async function main() {
       parking: 4,
       floors: 3,
       furnished: false,
-      amenities: JSON.stringify(['Mainline Water', 'Three-phase Electricity', 'Backup Generator', 'Road Frontage']),
+      amenitiesList: ['Mainline Water', 'Three-phase Electricity', 'Backup Generator', 'Road Frontage'],
       address: 'No 150, D.S. Senanayake Veediya, Kandy',
-      city: 'Kandy',
-      district: 'Kandy',
+      cityName: 'Kandy',
+      districtName: 'Kandy',
       latitude: 7.2906,
       longitude: 80.6337,
       status: ListingStatus.LIVE,
@@ -185,7 +255,7 @@ async function main() {
     {
       title: 'Stunning Beachfront Villa for Lease in Galle',
       description: 'A scenic beachfront villa located in Unawatuna, Galle, available for long term lease. Perfect for tourism or holiday rental operations. Offers 4 colonial-style bedrooms, private swimming pool, landscaped tropical garden, and direct private path to the sandy beach. Fully furnished with antique teak wood items.',
-      price: 450000, // 450k LKR / month
+      price: 450000, 
       negotiable: true,
       propertyType: 'Villa',
       purpose: Purpose.LEASE,
@@ -195,10 +265,10 @@ async function main() {
       parking: 3,
       floors: 2,
       furnished: true,
-      amenities: JSON.stringify(['AC', 'Hot Water', 'Swimming Pool', 'Garden', 'Beachfront', 'Servant Quarters']),
+      amenitiesList: ['AC', 'Hot Water', 'Swimming Pool', 'Garden', 'Beachfront', 'Servant Quarters'],
       address: 'No 8, Wella Dewala Road, Unawatuna, Galle',
-      city: 'Galle',
-      district: 'Galle',
+      cityName: 'Galle',
+      districtName: 'Galle',
       latitude: 6.0142,
       longitude: 80.2489,
       status: ListingStatus.LIVE,
@@ -211,21 +281,21 @@ async function main() {
     {
       title: 'Residential Land Plot in Negombo',
       description: 'Prime 15 perches residential land plot in Negombo, within close proximity to Negombo Lagoon and city center. Highly residential, peaceful environment. Clear deeds and survey plan. Pipe-borne water, electricity, and broad carpeted access roads are already established. Perfect to build your dream home.',
-      price: 12000000, // 12M LKR total
+      price: 12000000, 
       negotiable: true,
       propertyType: 'Land',
       purpose: Purpose.SALE,
       bedrooms: 0,
       bathrooms: 0,
       area: 0,
-      landSize: 15.0, // perches
+      landSize: 15.0, 
       parking: 0,
       floors: 0,
       furnished: false,
-      amenities: JSON.stringify(['Mainline Water', 'Electricity', 'Clear Deeds']),
+      amenitiesList: ['Mainline Water', 'Electricity', 'Clear Deeds'],
       address: 'Plot B, Lagoon View Gardens, Negombo',
-      city: 'Negombo',
-      district: 'Gampaha',
+      cityName: 'Negombo',
+      districtName: 'Gampaha',
       latitude: 7.2089,
       longitude: 79.8351,
       status: ListingStatus.LIVE,
@@ -237,7 +307,7 @@ async function main() {
     {
       title: 'Cozy Annex for Rent in Dehiwala',
       description: 'Fully tiled 1-bedroom annex for rent in a respectable neighborhood in Dehiwala. Features 1 bedroom, 1 bathroom, living area, and a mini kitchen. Separate entrance, separate electricity and water bills. Walkable distance to Galle Road and Hill Street. Best suited for working professionals or couples.',
-      price: 45000, // 45,000 LKR / month
+      price: 45000, 
       negotiable: false,
       propertyType: 'Annex',
       purpose: Purpose.RENT,
@@ -247,10 +317,10 @@ async function main() {
       parking: 1,
       floors: 1,
       furnished: false,
-      amenities: JSON.stringify(['Separate Utility Bills', 'Mainline Water', 'Secure Boundary']),
+      amenitiesList: ['Separate Utility Bills', 'Mainline Water', 'Secure Boundary'],
       address: 'No 15/4, Karunarathne Lane, Dehiwala',
-      city: 'Dehiwala',
-      district: 'Colombo',
+      cityName: 'Dehiwala',
+      districtName: 'Colombo',
       latitude: 6.8401,
       longitude: 79.8732,
       status: ListingStatus.LIVE,
@@ -262,28 +332,44 @@ async function main() {
   ]
 
   for (const listing of listingsData) {
-    const { images, ...coreDetails } = listing
+    const { images, amenitiesList, cityName, districtName, propertyType, ...coreDetails } = listing
+    
+    // Resolve category and city relations
+    const categoryId = categoryMap[propertyType]
+    const cityId = cityMap[cityName]
+
     const createdListing = await prisma.listing.create({
       data: {
         ...coreDetails,
+        propertyType, // Keep legacy type text
+        city: cityName, // Keep legacy city text
+        district: districtName, // Keep legacy district text
         sellerId: sellerUser.id,
+        categoryId,
+        cityId,
+        amenities: JSON.stringify(amenitiesList), // Keep legacy stringified array
+        // Connect many-to-many amenitiesRelation
+        amenitiesRelation: {
+          connect: amenitiesList.map(name => ({ id: amenityMap[name] }))
+        }
       },
     })
 
-    // Create related images
+    // Create ListingMedia records
     for (const url of images) {
-      await prisma.listingImage.create({
+      await prisma.listingMedia.create({
         data: {
           url,
+          type: MediaType.IMAGE,
           listingId: createdListing.id,
         },
       })
     }
   }
 
-  console.log(`Successfully seeded ${listingsData.length} property listings.`)
+  console.log(`Successfully seeded ${listingsData.length} property listings with relations.`)
 
-  // 4. Create FAQ and Platform Policy documentations for RAG Chatbot
+  // 5. Create FAQ and Platform Policy documentations for RAG Chatbot
   const kbData = [
     {
       title: 'Refund Policy for Advertising Packages',
