@@ -22,6 +22,8 @@ async function main() {
   await prisma.subscription.deleteMany({})
   await prisma.account.deleteMany({})
   await prisma.session.deleteMany({})
+  await prisma.profile.deleteMany({})
+  await prisma.loginHistory.deleteMany({})
   await prisma.user.deleteMany({})
   await prisma.knowledgeBase.deleteMany({})
 
@@ -38,6 +40,19 @@ async function main() {
       password: hashedPassword,
       role: Role.ADMIN,
       image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+      profile: {
+        create: {
+          phoneNumber: '+94 77 111 2222',
+          bio: 'System Administrator for PropertyHub.',
+          address: 'No 100, Galle Road, Colombo 03',
+        }
+      },
+      loginHistories: {
+        create: [
+          { ipAddress: '192.168.1.1', userAgent: 'Chrome / Windows', device: 'Desktop', country: 'Sri Lanka' },
+          { ipAddress: '192.168.1.12', userAgent: 'Safari / macOS', device: 'Desktop', country: 'Sri Lanka' },
+        ]
+      }
     },
   })
 
@@ -48,6 +63,19 @@ async function main() {
       password: hashedPassword,
       role: Role.SELLER,
       image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
+      profile: {
+        create: {
+          phoneNumber: '+94 77 333 4444',
+          bio: 'Premier Real Estate Agency in Colombo.',
+          address: 'No 45, Alfred House Gardens, Colombo 03',
+        }
+      },
+      loginHistories: {
+        create: [
+          { ipAddress: '192.168.1.5', userAgent: 'Chrome / Windows', device: 'Desktop', country: 'Sri Lanka' },
+          { ipAddress: '192.168.1.9', userAgent: 'Safari / iPhone', device: 'Mobile', country: 'Sri Lanka' },
+        ]
+      }
     },
   })
 
@@ -58,6 +86,18 @@ async function main() {
       password: hashedPassword,
       role: Role.BUYER,
       image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150',
+      profile: {
+        create: {
+          phoneNumber: '+94 77 555 6666',
+          bio: 'Looking for a 3-bedroom house near Nugegoda.',
+          address: 'No 12, High Level Road, Nugegoda',
+        }
+      },
+      loginHistories: {
+        create: [
+          { ipAddress: '192.168.1.20', userAgent: 'Chrome / Android', device: 'Mobile', country: 'Sri Lanka' },
+        ]
+      }
     },
   })
 

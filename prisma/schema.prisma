@@ -51,8 +51,10 @@ model User {
   reviewsReceived Review[]      @relation("SellerReviews")
   messagesSent  Message[]       @relation("Sender")
   messagesReceived Message[]    @relation("Receiver")
-  subscriptions Subscription[]
-  favorites     Favorite[]
+  subscriptions    Subscription[]
+  favorites        Favorite[]
+  profile          Profile?
+  loginHistories   LoginHistory[]
 }
 
 model Account {
@@ -209,4 +211,30 @@ model KBEmbedding {
   kbId      String        @unique
   kb        KnowledgeBase @relation(fields: [kbId], references: [id], onDelete: Cascade)
   embedding Unsupported("vector(1536)")
+}
+
+model Profile {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  phoneNumber       String?
+  bio               String?  @db.Text
+  preferredLanguage String   @default("English")
+  preferredCurrency String   @default("LKR")
+  address           String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model LoginHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  ipAddress String?
+  userAgent String?
+  device    String?  // e.g. "Mobile", "Desktop"
+  country   String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
