@@ -58,6 +58,10 @@ model User {
   savedSearches    SavedSearch[]
   recentlyViewed   RecentlyViewed[]
   comparisons      SavedComparison[]
+  conversations    Conversation[]
+  invoices         Invoice[]
+  payments         Payment[]
+  notifications    Notification[]
 }
 
 model Account {
@@ -130,6 +134,7 @@ model Listing {
   favorites      Favorite[]
   embedding      ListingEmbedding?
   recentlyViewed RecentlyViewed[]
+  boostPurchases BoostPurchase[]
 
   categoryId        String?
   category          PropertyCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
@@ -167,40 +172,47 @@ model Review {
   id         String   @id @default(cuid())
   rating     Int      // 1 to 5
   comment    String   @db.Text
-  reviewerId String
-  sellerId   String
-  listingId  String?
-  verified   Boolean  @default(false)
-  createdAt  DateTime @default(now())
+  reviewerId       String
+  sellerId         String
+  listingId        String?
+  verified         Boolean          @default(false)
+  moderationStatus ModerationStatus @default(PENDING)
+  createdAt        DateTime         @default(now())
 
-  reviewer User     @relation("Reviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
-  seller   User     @relation("SellerReviews", fields: [sellerId], references: [id], onDelete: Cascade)
-  listing  Listing? @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  reviewer User             @relation("Reviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
+  seller   User             @relation("SellerReviews", fields: [sellerId], references: [id], onDelete: Cascade)
+  listing  Listing?         @relation(fields: [listingId], references: [id], onDelete: SetNull)
 }
 
 model Message {
-  id         String   @id @default(cuid())
-  content    String   @db.Text
-  senderId   String
-  receiverId String
-  listingId  String?
-  read       Boolean  @default(false)
-  createdAt  DateTime @default(now())
+  id             String       @id @default(cuid())
+  content        String       @db.Text
+  senderId       String
+  receiverId     String
+  listingId      String?
+  conversationId String
+  read           Boolean      @default(false)
+  readAt         DateTime?
+  createdAt      DateTime     @default(now())
 
-  sender   User     @relation("Sender", fields: [senderId], references: [id], onDelete: Cascade)
-  receiver User     @relation("Receiver", fields: [receiverId], references: [id], onDelete: Cascade)
-  listing  Listing? @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  sender       User         @relation("Sender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver     User         @relation("Receiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  listing      Listing?     @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 }
 
 model Subscription {
-  id               String   @id @default(cuid())
-  tier             String   // e.g. STARTER, PROFESSIONAL, BUSINESS, ENTERPRISE
-  status           String   // e.g. ACTIVE, CANCELLED, PAST_DUE
-  activePeriodEnd  DateTime
-  userId           String
-  createdAt        DateTime @default(now())
+  id              String    @id @default(cuid())
+  tier            String // Legacy text support
+  status          String // e.g. ACTIVE, CANCELLED, PAST_DUE
+  activePeriodEnd DateTime
+  userId          String
+  planId          String?
+  createdAt       DateTime  @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan     Plan?    @relation(fields: [planId], references: [id], onDelete: SetNull)
+  invoices Invoice[]
 }
 
 model KnowledgeBase {
@@ -321,6 +333,125 @@ model SavedComparison {
   name       String
   listingIds String   @db.Text
   createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum ModerationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  SMS
+  PUSH
+}
+
+enum InvoiceStatus {
+  PAID
+  UNPAID
+  VOID
+}
+
+enum PaymentStatus {
+  SUCCESS
+  FAILED
+  PENDING
+}
+
+enum BoostTier {
+  FEATURED
+  TOP
+  URGENT
+}
+
+model Conversation {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  participants User[]
+  messages     Message[]
+}
+
+model Plan {
+  id            String         @id @default(cuid())
+  name          String         @unique
+  description   String?
+  price         Float
+  durationDays  Int
+  maxListings   Int
+  maxBoosts     Int
+  subscriptions Subscription[]
+}
+
+model Invoice {
+  id             String        @id @default(cuid())
+  subscriptionId String?
+  userId         String
+  amount         Float
+  status         InvoiceStatus @default(UNPAID)
+  pdfUrl         String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  payments     Payment[]
+}
+
+model Payment {
+  id         String        @id @default(cuid())
+  amount     Float
+  currency   String        @default("LKR")
+  status     PaymentStatus @default(PENDING)
+  gateway    String        @default("Stripe")
+  gatewayTxId String?
+  invoiceId  String?
+  userId     String
+  createdAt  DateTime      @default(now())
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  invoice        Invoice?        @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  boostPurchases BoostPurchase[]
+}
+
+model Coupon {
+  id             String    @id @default(cuid())
+  code           String    @unique
+  discountPct    Float?
+  discountAmt    Float?
+  expiresAt      DateTime?
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+}
+
+model BoostPurchase {
+  id        String    @id @default(cuid())
+  listingId String
+  tier      BoostTier
+  amount    Float
+  paymentId String?
+  startDate DateTime  @default(now())
+  endDate   DateTime
+  createdAt DateTime  @default(now())
+
+  listing Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  payment Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+}
+
+model Notification {
+  id        String              @id @default(cuid())
+  userId    String
+  title     String
+  content   String              @db.Text
+  channel   NotificationChannel @default(IN_APP)
+  isRead    Boolean             @default(false)
+  readAt    DateTime?
+  createdAt DateTime            @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

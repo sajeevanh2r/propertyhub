@@ -20,13 +20,20 @@ async function main() {
   await prisma.favorite.deleteMany({})
   await prisma.review.deleteMany({})
   await prisma.message.deleteMany({})
+  await prisma.conversation.deleteMany({})
+  await prisma.boostPurchase.deleteMany({})
+  await prisma.payment.deleteMany({})
+  await prisma.invoice.deleteMany({})
+  await prisma.subscription.deleteMany({})
+  await prisma.plan.deleteMany({})
+  await prisma.coupon.deleteMany({})
+  await prisma.notification.deleteMany({})
   await prisma.listingMedia.deleteMany({})
   await prisma.listing.deleteMany({})
   await prisma.amenity.deleteMany({})
   await prisma.city.deleteMany({})
   await prisma.district.deleteMany({})
   await prisma.propertyCategory.deleteMany({})
-  await prisma.subscription.deleteMany({})
   await prisma.account.deleteMany({})
   await prisma.session.deleteMany({})
   await prisma.profile.deleteMany({})
@@ -109,6 +116,53 @@ async function main() {
   })
 
   console.log(`Created users: Admin (${adminUser.email}), Seller (${sellerUser.email}), Buyer (${buyerUser.email})`)
+
+  // 2b. Seed Pricing Plans
+  const starterPlan = await prisma.plan.create({
+    data: {
+      name: 'Starter Package',
+      description: 'Ideal for individual sellers listing single properties.',
+      price: 1500,
+      durationDays: 30,
+      maxListings: 2,
+      maxBoosts: 0,
+    }
+  })
+
+  const proPlan = await prisma.plan.create({
+    data: {
+      name: 'Professional Package',
+      description: 'Great for real estate agents and small agencies.',
+      price: 7500,
+      durationDays: 30,
+      maxListings: 15,
+      maxBoosts: 3,
+    }
+  })
+
+  const enterprisePlan = await prisma.plan.create({
+    data: {
+      name: 'Enterprise Package',
+      description: 'For large real estate agencies and developers.',
+      price: 25000,
+      durationDays: 30,
+      maxListings: 100,
+      maxBoosts: 20,
+    }
+  })
+
+  // Create professional subscription for the seller
+  await prisma.subscription.create({
+    data: {
+      tier: 'PROFESSIONAL',
+      status: 'ACTIVE',
+      activePeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      userId: sellerUser.id,
+      planId: proPlan.id,
+    }
+  })
+
+  console.log('Seeded Pricing Plans and Seller Subscription.')
 
   // 3. Seed lookup tables
   // 3a. Property Categories
@@ -430,6 +484,90 @@ All boosts can be purchased using Credit/Debit Cards via Stripe or local payment
   }
 
   console.log(`Successfully seeded ${kbData.length} FAQ / policy documents in KnowledgeBase.`)
+
+  // 6. Seed Conversation and Message
+  const conversation = await prisma.conversation.create({
+    data: {
+      participants: {
+        connect: [
+          { id: buyerUser.id },
+          { id: sellerUser.id }
+        ]
+      }
+    }
+  })
+
+  await prisma.message.create({
+    data: {
+      content: 'Hi Sajeevan, I am interested in your Modern 3-Bedroom House in Nugegoda. Is it possible to schedule a viewing this Saturday?',
+      senderId: buyerUser.id,
+      receiverId: sellerUser.id,
+      conversationId: conversation.id,
+      read: true,
+      readAt: new Date(),
+    }
+  })
+
+  await prisma.message.create({
+    data: {
+      content: 'Hello Amara! Yes, sure. Saturday morning at 10:00 AM works perfectly for me. Let know if that works for you.',
+      senderId: sellerUser.id,
+      receiverId: buyerUser.id,
+      conversationId: conversation.id,
+      read: false,
+    }
+  })
+
+  console.log('Seeded Conversations and Messages between Buyer and Seller.')
+
+  // 7. Seed Reviews
+  await prisma.review.create({
+    data: {
+      rating: 5,
+      comment: 'Excellent agency! Sajeevan was extremely professional and showed us three great properties. Highly recommended.',
+      reviewerId: buyerUser.id,
+      sellerId: sellerUser.id,
+      verified: true,
+      moderationStatus: 'APPROVED'
+    }
+  })
+
+  await prisma.review.create({
+    data: {
+      rating: 4,
+      comment: 'Very helpful customer service, but response time via messaging was slightly delayed.',
+      reviewerId: buyerUser.id,
+      sellerId: sellerUser.id,
+      verified: false,
+      moderationStatus: 'PENDING'
+    }
+  })
+
+  console.log('Seeded Seller Reviews.')
+
+  // 8. Seed Notifications
+  await prisma.notification.create({
+    data: {
+      userId: sellerUser.id,
+      title: 'New Lead Message received',
+      content: 'Amara Perera sent you a message about Modern 3-Bedroom House in Nugegoda.',
+      channel: 'IN_APP',
+      isRead: false,
+    }
+  })
+
+  await prisma.notification.create({
+    data: {
+      userId: buyerUser.id,
+      title: 'Listing Document Approved',
+      content: 'Your requested verification for Modern 3-Bedroom House in Nugegoda is complete.',
+      channel: 'EMAIL',
+      isRead: true,
+      readAt: new Date(),
+    }
+  })
+
+  console.log('Seeded Notifications.')
   console.log('Seeding completed successfully!')
 }
 
