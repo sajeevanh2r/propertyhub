@@ -19,6 +19,13 @@ async function main() {
   await prisma.savedComparison.deleteMany({})
   await prisma.favorite.deleteMany({})
   await prisma.review.deleteMany({})
+  await prisma.comment.deleteMany({})
+  await prisma.blogPost.deleteMany({})
+  await prisma.tag.deleteMany({})
+  await prisma.blogCategory.deleteMany({})
+  await prisma.cmsSection.deleteMany({})
+  await prisma.cmsPage.deleteMany({})
+  await prisma.seoMetadata.deleteMany({})
   await prisma.message.deleteMany({})
   await prisma.conversation.deleteMany({})
   await prisma.boostPurchase.deleteMany({})
@@ -568,6 +575,98 @@ All boosts can be purchased using Credit/Debit Cards via Stripe or local payment
   })
 
   console.log('Seeded Notifications.')
+
+  // 9. Seed Blog Categories, Tags, Posts & Comments
+  const blogCategory = await prisma.blogCategory.create({
+    data: {
+      name: 'Real Estate Investment',
+      slug: 'real-estate-investment',
+    }
+  })
+
+  const tagTrend = await prisma.tag.create({
+    data: { name: 'Market Trends', slug: 'market-trends' }
+  })
+  const tagColombo = await prisma.tag.create({
+    data: { name: 'Colombo Properties', slug: 'colombo-properties' }
+  })
+
+  const blogPost = await prisma.blogPost.create({
+    data: {
+      title: 'Sri Lanka Real Estate Market Outlook 2026',
+      slug: 'sri-lanka-real-estate-market-outlook-2026',
+      content: 'The property market in Colombo, Nugegoda, and major suburbs has shown high resilience. In this post, we discuss rental yield rates, interest rate drops, and top regions to buy houses...',
+      excerpt: 'An in-depth review of major property trends in Colombo suburban regions for 2026.',
+      categoryId: blogCategory.id,
+      authorId: adminUser.id,
+      published: true,
+      publishedAt: new Date(),
+      tags: {
+        connect: [{ id: tagTrend.id }, { id: tagColombo.id }]
+      }
+    }
+  })
+
+  await prisma.comment.create({
+    data: {
+      content: 'This is a very informative analysis. Are there specific predictions for land prices in Negombo?',
+      postId: blogPost.id,
+      authorId: buyerUser.id,
+      approved: true,
+    }
+  })
+
+  console.log('Seeded Blogs, Categories, Tags, and Comments.')
+
+  // 10. Seed CMS Page & Sections
+  const homeCmsPage = await prisma.cmsPage.create({
+    data: {
+      slug: 'homepage',
+      title: 'PropertyHub Home Layout',
+      description: 'Dynamic content rendering sections for the main portal landing view.',
+    }
+  })
+
+  await prisma.cmsSection.create({
+    data: {
+      pageId: homeCmsPage.id,
+      sectionKey: 'hero',
+      title: 'Find Your Perfect Space in Sri Lanka',
+      subtitle: 'Search residential, commercial, and land listings across the island.',
+      content: '{"backgroundImage": "https://images.unsplash.com/photo-1600585154340-be6161a56a0c", "showSearchForm": true}',
+      displayOrder: 1,
+      isActive: true,
+    }
+  })
+
+  await prisma.cmsSection.create({
+    data: {
+      pageId: homeCmsPage.id,
+      sectionKey: 'features',
+      title: 'Why Choose PropertyHub?',
+      subtitle: 'Our platform is packed with state of the art analytics and AI assistants.',
+      content: '{"items": [{"title": "Verified Listings", "description": "Inspected properties with genuine details"}, {"title": "Advanced RAG AI", "description": "Conversational bot grounded in active listings"}]}',
+      displayOrder: 2,
+      isActive: true,
+    }
+  })
+
+  console.log('Seeded CMS Pages and Layout Sections.')
+
+  // 11. Seed SEO Metadata
+  await prisma.seoMetadata.create({
+    data: {
+      entityType: 'CMS_PAGE',
+      entityId: homeCmsPage.id,
+      title: 'PropertyHub - Premium Real Estate Marketplace in Sri Lanka',
+      description: 'Browse verified houses, apartments, lands, and commercial spaces for sale and rent in Sri Lanka. Chat with our grounded AI chatbot helper.',
+      keywords: 'sri lanka real estate, buy house colombo, rent apartment nugegoda, property hub',
+      canonicalUrl: 'https://propertyhub.lk',
+      ogImage: 'https://propertyhub.lk/og-home.jpg',
+    }
+  })
+
+  console.log('Seeded SEO Metadata overrides.')
   console.log('Seeding completed successfully!')
 }
 
