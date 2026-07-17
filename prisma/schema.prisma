@@ -64,6 +64,7 @@ model User {
   notifications    Notification[]
   blogPosts        BlogPost[]
   comments         Comment[]
+  chatConversations ChatConversation[]
 }
 
 model Account {
@@ -134,7 +135,6 @@ model Listing {
   reviews        Review[]
   messages       Message[]
   favorites      Favorite[]
-  embedding      ListingEmbedding?
   recentlyViewed RecentlyViewed[]
   boostPurchases BoostPurchase[]
 
@@ -225,22 +225,40 @@ model KnowledgeBase {
   sourceUrl String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  embedding KBEmbedding?
 }
 
-model ListingEmbedding {
-  id        String   @id @default(cuid())
-  listingId String   @unique
-  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  embedding Unsupported("vector(1536)")
+model Embedding {
+  id         String   @id @default(cuid())
+  sourceType String   // e.g. "LISTING", "KNOWLEDGE_BASE", "BLOG_POST"
+  sourceId   String
+  chunkText  String   @db.Text
+  embedding  Unsupported("vector(1536)")
+  metadata   String?  @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([sourceType, sourceId])
 }
 
-model KBEmbedding {
+model ChatConversation {
   id        String        @id @default(cuid())
-  kbId      String        @unique
-  kb        KnowledgeBase @relation(fields: [kbId], references: [id], onDelete: Cascade)
-  embedding Unsupported("vector(1536)")
+  userId    String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  messages  ChatMessage[]
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model ChatMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  role           String   // "user" or "assistant"
+  content        String   @db.Text
+  citations      String?  @db.Text
+  createdAt      DateTime @default(now())
+
+  conversation ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 }
 
 model Profile {

@@ -12,8 +12,6 @@ async function main() {
   console.log('Starting seeding database for Phase 2...')
 
   // 1. Clean existing records (in reverse order of dependencies)
-  await prisma.kBEmbedding.deleteMany({})
-  await prisma.listingEmbedding.deleteMany({})
   await prisma.recentlyViewed.deleteMany({})
   await prisma.savedSearch.deleteMany({})
   await prisma.savedComparison.deleteMany({})
@@ -35,6 +33,9 @@ async function main() {
   await prisma.plan.deleteMany({})
   await prisma.coupon.deleteMany({})
   await prisma.notification.deleteMany({})
+  await prisma.chatMessage.deleteMany({})
+  await prisma.chatConversation.deleteMany({})
+  await prisma.embedding.deleteMany({})
   await prisma.listingMedia.deleteMany({})
   await prisma.listing.deleteMany({})
   await prisma.amenity.deleteMany({})
